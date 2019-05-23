@@ -68,7 +68,7 @@ class Card(object):
         self.hidden = False
 
     def is_hidden(self):
-        return self.hidden == True
+        return self.hidden
 
 
 class Hand(object):
@@ -119,6 +119,10 @@ class Player(Hand):
         # print(", ".join(_hand))
         return _imgs
 
+    def str_hand(self):
+        _hand = [_.__str__() for _ in self.hand]
+        return " ".join(_hand)
+
     def hit(self):
         self.add_card(self.deck.deal())
         return self.hand
@@ -131,7 +135,6 @@ class Player(Hand):
     def draw_card(self, display, player, card, x, y):
         if player == "Dealer":
             _y = (card.card_img.get_size()[1]/2)/2
-            print(player, card.is_hidden(), x, _y)
             _img = card.card_img
             if card.is_hidden():
                 _img = self.deck_img
