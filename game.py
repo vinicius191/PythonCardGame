@@ -3,13 +3,28 @@ from config import Config
 from objects import Deck, Player
 
 
+def draw_text(surf, text, size, x, y):
+    print("Here ---- ")
+    font = pygame.font.Font(Game.font_name, size)
+    text_surface = font.render(text, True, Game.WHITE)
+    text_rect = text_surface.get_rect()
+    text_rect.midtop = (x, y)
+    surf.blit(text_surface, text_rect)
+
+
 class Game:
+
+    # Font global def
+    font_name = pygame.font.match_font('arial')
+
+    # Game global colors
+    WHITE = (255, 255, 255)
 
     def __init__(self, display):
 
         self.clock = pygame.time.Clock()
         self.hit_btn_rect = pygame.Rect(Config["deck"]["x"], Config["deck"]["y"]+150, 140, 25)
-        pygame.init()
+        self.pygame = pygame.init()
         pygame.font.init()
         self.font_small = pygame.font.SysFont('Arial Black', 12)
         self.font_large = pygame.font.SysFont('Arial', 32)
@@ -25,10 +40,11 @@ class Game:
         self.players = []
         self.players.append(self.player)
         self.players.append(self.dealer)
+        self.run = True
+        self.game_over = False
+        self.reason = ""
 
     def loop(self):
-        first_hand = True
-        hit = False
         _x = 0
 
         # Filling bg with green gradient
@@ -47,8 +63,42 @@ class Game:
         # Show Player Hand Total text
         self.display_player_hand()
 
-        # Calling the game loop
-        self.game_loop()
+        # Show Dealer Hand Total text
+        self.display_dealer_hand()
+
+        self.display_dealer_cards()
+
+        # Main loop
+        while self.run:
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    exit()
+
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    x, y = event.pos
+                    _deck_img_size = self.deck.deck_img.get_size()
+                    _deck_img = pygame.Rect((Config["deck"]["x"], Config["deck"]["y"]), _deck_img_size)
+                    _hit_btn_w = self.deck.deck_img.get_size()[0]
+                    _hit_btn = pygame.Rect(Config["deck"]["x"], Config["deck"]["y"] + 150, _hit_btn_w, 25)
+                    if _deck_img.collidepoint(x, y):
+                        # It works... need to implement [Hit] and [Stay] buttons
+                        pass
+                    if _hit_btn.collidepoint(x, y):
+                        self.player.hit()
+                        self.player_card_x_offset += 25
+                        self.player.draw_card(self.display, self.player, self.player.show_hand()[-1],
+                                              self.player_card_x_offset, self.player_card_y_offset)
+                        # print("Player Hand: ", self.player.str_hand(), "Values: ", self.player.get_values())
+                        self.update_display_player_hand()
+
+            if self.player.get_values() > 21:
+                self.reason = "Sorry you busted (" + str(self.player.get_values()) + ")"
+                self.game_over = True
+                self.show_game_over_screen(self.reason)
+
+            pygame.display.update()
+            self.clock.tick(Config["game"]["fps"])
 
     def gradient_bg(self, display, rect, start_color, end_color, vertical=True, forward=True):
         """fill a surface with a gradient pattern
@@ -96,35 +146,66 @@ class Game:
                 )
                 fn_line(display, color, (col, y1), (col, y2))
 
-    def game_loop(self):
-        self.display_dealer_cards()
-
-        while True:
-
+    def show_game_over_screen(self, reason):
+        # Clear Player Hand
+        self.player = Player("Player", self.deck)
+        # Filling bg with green gradient
+        self.gradient_bg(self.display, self.rect, (34, 139, 34), (0, 100, 0), True, True)
+        _w = Config["game"]["width"]
+        _h = Config["game"]["height"]
+        # Draw text msg
+        draw_text(self.display, reason, 42, _w/2, _h/4)
+        draw_text(self.display, "Press ESC to exit or any other key to play again", 20, _w/2, _h/2)
+        pygame.display.flip()
+        # Check player key input to quit or restart the game
+        waiting = True
+        while waiting:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     exit()
-
+                if event.type == pygame.KEYUP:
+                    if event.key == pygame.K_ESCAPE or event.unicode == 'q':
+                        exit()
+                    else:
+                        waiting = False
+                        self.restart_game()
                 if event.type == pygame.MOUSEBUTTONDOWN:
-                    x, y = event.pos
-                    _deck_img_size = self.deck.deck_img.get_size()
-                    _deck_img = pygame.Rect((Config["deck"]["x"], Config["deck"]["y"]), _deck_img_size)
-                    _hit_btn_w = self.deck.deck_img.get_size()[0]
-                    _hit_btn = pygame.Rect(Config["deck"]["x"], Config["deck"]["y"] + 150, _hit_btn_w, 25)
-                    if _deck_img.collidepoint(x, y):
-                        # It works... need to implement [Hit] and [Stay] buttons
-                        pass
-                    if _hit_btn.collidepoint(x, y):
-                        print("Hit Button clicked.")
-                        self.player.hit()
-                        self.player_card_x_offset += 25
-                        self.player.draw_card(self.display, self.player, self.player.show_hand()[-1],
-                                              self.player_card_x_offset, self.player_card_y_offset)
-                        print("Player Hand: ", self.player.str_hand(), "Values: ", self.player.get_values())
-                        self.update_display_player_hand()
+                    waiting = False
+                    self.restart_game()
 
-            pygame.display.update()
-            self.clock.tick(Config["game"]["fps"])
+    def restart_game(self):
+        self.game_over = False
+        # Create a new Deck and new Player/Dealer
+        self.deck = Deck(self.display)
+        self.player = Player("Player", self.deck)
+        self.dealer = Player("Dealer", self.deck)
+        self.players = []
+        self.players.append(self.player)
+        self.players.append(self.dealer)
+
+        # Filling bg with green gradient
+        self.gradient_bg(self.display, self.rect, (34, 139, 34), (0, 100, 0), True, True)
+
+        # Putting deck image on the screen
+        self.deck.draw()
+
+        # Dealing first hard of cards
+        self.first_hand(self.players)
+
+        # Drawing the hit and stay button
+        self.stay_btn()
+        self.hit_btn()
+
+        # Show Player Hand Total text
+        self.display_player_hand()
+
+        # Show Dealer Hand Total text
+        self.display_dealer_hand()
+
+        self.display_dealer_cards()
+
+    def game_loop(self):
+        pass
 
     def first_hand(self, players):
         for i in range(2):
@@ -167,6 +248,16 @@ class Game:
         self.display.blit(btn_txt, btn_rect)
         pygame.display.flip()
 
+    def display_dealer_hand(self):
+        print("display dealer")
+        txt_x = self.player_card_x_offset - ((len(self.player.hand) - 1) * 25)
+        txt_y = self.player_card_y_offset - 120
+        rect_w = (self.deck.deck_img.get_size()[0] + 75)
+        txt_str = "Dealer Total: " + str(self.dealer.get_values())
+        txt = self.font_small.render(txt_str, False, (255, 255, 255))
+        rect = pygame.Rect(txt_x, txt_y, rect_w, 25)
+        self.display.blit(txt, rect)
+
     def display_player_hand(self):
         txt_x = self.player_card_x_offset - ((len(self.player.hand) - 1) * 25)
         txt_y = self.player_card_y_offset - 35
@@ -177,22 +268,28 @@ class Game:
         self.display.blit(txt, rect)
 
     def update_display_player_hand(self):
+        print("update display player hand")
         txt_x = self.player_card_x_offset - ((len(self.player.hand) - 1) * 25)
         txt_y = self.player_card_y_offset - 35
         rect_w = (self.deck.deck_img.get_size()[0] + 75)
         txt_str = "Player Total: " + str(self.player.get_values())
         txt = self.font_small.render(txt_str, False, (255, 255, 255))
         rect = pygame.Rect(txt_x, txt_y, rect_w, 25)
+        # Re-Cover the screen with the background gradient
         self.gradient_bg(self.display, self.rect, (34, 139, 34), (0, 100, 0), True, True)
 
+        self.display.blit(txt, rect)
+
+        # Update dealer score
+        self.display_dealer_hand()
+
         # Redraw Player, Dealer, Deck and buttons
-        self.display_dealer_cards()
         self.display_player_cards()
+        self.display_dealer_cards()
         self.deck.draw()
         self.hit_btn()
         self.stay_btn()
 
-        self.display.blit(txt, rect)
         pygame.display.flip()
 
     def display_dealer_cards(self):
