@@ -81,6 +81,7 @@ class Game:
                     _deck_img = pygame.Rect((Config["deck"]["x"], Config["deck"]["y"]), _deck_img_size)
                     _hit_btn_w = self.deck.deck_img.get_size()[0]
                     _hit_btn = pygame.Rect(Config["deck"]["x"], Config["deck"]["y"] + 150, _hit_btn_w, 25)
+                    _stay_btn = pygame.Rect(Config["deck"]["x"], Config["deck"]["y"] + 185, _hit_btn_w, 25)
                     if _deck_img.collidepoint(x, y):
                         # It works... need to implement [Hit] and [Stay] buttons
                         pass
@@ -91,9 +92,18 @@ class Game:
                                               self.player_card_x_offset, self.player_card_y_offset)
                         # print("Player Hand: ", self.player.str_hand(), "Values: ", self.player.get_values())
                         self.update_display_player_hand()
+                    if _stay_btn.collidepoint(x, y):
+                        self.dealer.hit()
+                        self.dealer.draw_card(self.display, self.dealer, self.dealer.show_hand()[-1],
+                                              self.player_card_x_offset, self.player_card_y_offset)
 
             if self.player.get_values() > 21:
                 self.reason = "Sorry you busted (" + str(self.player.get_values()) + ")"
+                self.game_over = True
+                self.show_game_over_screen(self.reason)
+
+            if self.dealer.get_values() > 21:
+                self.reason = "Dealer busted (" + str(self.dealer.get_values()) + "). You win"
                 self.game_over = True
                 self.show_game_over_screen(self.reason)
 
@@ -268,7 +278,6 @@ class Game:
         self.display.blit(txt, rect)
 
     def update_display_player_hand(self):
-        print("update display player hand")
         txt_x = self.player_card_x_offset - ((len(self.player.hand) - 1) * 25)
         txt_y = self.player_card_y_offset - 35
         rect_w = (self.deck.deck_img.get_size()[0] + 75)
