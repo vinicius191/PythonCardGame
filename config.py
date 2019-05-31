@@ -3,7 +3,7 @@ Config = {
         "caption": "Blackjack",
         "width": 640,
         "height": 480,
-        "fps": 30
+        "fps": 10
     },
     "colours": {
         "white": (255, 255, 255),

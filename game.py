@@ -3,9 +3,9 @@ from config import Config
 from objects import Deck, Player
 
 
-def draw_text(surf, text, size, x, y):
-    print("Here ---- ")
-    font = pygame.font.Font(Game.font_name, size)
+def draw_text(surf, text, size, x, y, font_name):
+    _font_name = pygame.font.match_font(font_name)
+    font = pygame.font.Font(_font_name, size)
     text_surface = font.render(text, True, Game.WHITE)
     text_rect = text_surface.get_rect()
     text_rect.midtop = (x, y)
@@ -15,7 +15,7 @@ def draw_text(surf, text, size, x, y):
 class Game:
 
     # Font global def
-    font_name = pygame.font.match_font('arial')
+    font_name = pygame.font.match_font('freesansbold')
 
     # Game global colors
     WHITE = (255, 255, 255)
@@ -26,6 +26,7 @@ class Game:
         self.hit_btn_rect = pygame.Rect(Config["deck"]["x"], Config["deck"]["y"]+150, 140, 25)
         self.pygame = pygame.init()
         pygame.font.init()
+        print(pygame.font.get_default_font())
         self.font_small = pygame.font.SysFont('Arial Black', 12)
         self.font_large = pygame.font.SysFont('Arial', 32)
         self.display = display
@@ -70,7 +71,7 @@ class Game:
 
         # Main loop
         while self.run:
-
+            
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     exit()
@@ -97,13 +98,23 @@ class Game:
                         self.dealer.draw_card(self.display, self.dealer, self.dealer.show_hand()[-1],
                                               self.player_card_x_offset, self.player_card_y_offset)
 
+            if self.player.get_values() == 21:
+                self.reason = "Blackjack!"
+                self.game_over = True
+                self.show_game_over_screen(self.reason)
+
             if self.player.get_values() > 21:
-                self.reason = "Sorry you busted (" + str(self.player.get_values()) + ")"
+                self.reason = "Busted (" + str(self.player.get_values()) + "). Dealer win."
                 self.game_over = True
                 self.show_game_over_screen(self.reason)
 
             if self.dealer.get_values() > 21:
-                self.reason = "Dealer busted (" + str(self.dealer.get_values()) + "). You win"
+                self.reason = "Dealer busted (" + str(self.dealer.get_values()) + "), You win."
+                self.game_over = True
+                self.show_game_over_screen(self.reason)
+
+            if self.dealer.get_values() == 21:
+                self.reason = "Dealer got a Blackjack! You lose."
                 self.game_over = True
                 self.show_game_over_screen(self.reason)
 
@@ -160,21 +171,24 @@ class Game:
         # Clear Player Hand
         self.player = Player("Player", self.deck)
         # Filling bg with green gradient
-        self.gradient_bg(self.display, self.rect, (34, 139, 34), (0, 100, 0), True, True)
+        # self.gradient_bg(self.display, self.rect, (34, 139, 34), (0, 100, 0), True, True)
         _w = Config["game"]["width"]
         _h = Config["game"]["height"]
         # Draw text msg
-        draw_text(self.display, reason, 42, _w/2, _h/4)
-        draw_text(self.display, "Press ESC to exit or any other key to play again", 20, _w/2, _h/2)
+        draw_text(self.display, reason, 26, _w/2-60, _h/2-20, "freesansbold")
+        draw_text(self.display, "Press ESC to exit or any other key to play again", 22, _w/2-60, _h/2+4, "freesansbold")
         pygame.display.flip()
         # Check player key input to quit or restart the game
         waiting = True
         while waiting:
+
+            self.clock.tick(Config["game"]["fps"])
+
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     exit()
                 if event.type == pygame.KEYUP:
-                    if event.key == pygame.K_ESCAPE or event.unicode == 'q':
+                    if event.key == pygame.K_ESCAPE:
                         exit()
                     else:
                         waiting = False
