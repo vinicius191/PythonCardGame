@@ -21,12 +21,10 @@ class Game:
     WHITE = (255, 255, 255)
 
     def __init__(self, display):
-
         self.clock = pygame.time.Clock()
         self.hit_btn_rect = pygame.Rect(Config["deck"]["x"], Config["deck"]["y"]+150, 140, 25)
         self.pygame = pygame.init()
         pygame.font.init()
-        print(pygame.font.get_default_font())
         self.font_small = pygame.font.SysFont('Arial Black', 12)
         self.font_large = pygame.font.SysFont('Arial', 32)
         self.display = display
@@ -37,6 +35,8 @@ class Game:
         self.rect = pygame.Rect(0, 0, self.w, self.h)
         self.player_card_x_offset = 0
         self.player_card_y_offset = 0
+        self.dealer_card_x_offset = 0
+        self.dealer_card_y_offset = 33.75
         self.player_hand_txt = None
         self.players = []
         self.players.append(self.player)
@@ -66,8 +66,7 @@ class Game:
 
         # Show Dealer Hand Total text
         self.display_dealer_hand()
-
-        self.display_dealer_cards()
+        # self.display_dealer_cards()
 
         # Main loop
         while self.run:
@@ -94,9 +93,32 @@ class Game:
                         # print("Player Hand: ", self.player.str_hand(), "Values: ", self.player.get_values())
                         self.update_display_player_hand()
                     if _stay_btn.collidepoint(x, y):
-                        self.dealer.hit()
+                        pygame.time.delay(1000)
+                        self.dealer.hand[0].reveal_card()
+                        pygame.time.delay(1000)
+                        self.display_dealer_cards()
                         self.dealer.draw_card(self.display, self.dealer, self.dealer.show_hand()[-1],
-                                              self.player_card_x_offset, self.player_card_y_offset)
+                                              self.dealer_card_x_offset, self.dealer_card_y_offset)
+                        self.update_display_dealer_hand()
+                        pygame.time.wait(1000)
+                        if self.dealer.get_values() >= 17 and self.dealer.get_values() > self.player.get_values():
+                            self.reason = "Dealer win (" + str(self.dealer.get_values()) + ")."
+                            self.game_over = True
+                            self.show_game_over_screen(self.reason)
+
+                        while self.dealer.get_values() < 17:
+                            pygame.time.wait(1000)
+                            self.dealer.hand[0].reveal_card()
+                            pygame.time.wait(1000)
+                            self.dealer.hit()
+                            pygame.time.wait(1000)
+                            self.dealer_card_x_offset += 25
+
+                            self.display_dealer_cards()
+                            self.dealer.draw_card(self.display, self.dealer, self.dealer.show_hand()[-1],
+                                                  self.dealer_card_x_offset, self.dealer_card_y_offset)
+                            self.update_display_dealer_hand()
+                            pygame.time.wait(1000)
 
             if self.player.get_values() == 21:
                 self.reason = "Blackjack!"
@@ -109,12 +131,22 @@ class Game:
                 self.show_game_over_screen(self.reason)
 
             if self.dealer.get_values() > 21:
-                self.reason = "Dealer busted (" + str(self.dealer.get_values()) + "), You win."
+                self.reason = "Dealer busted (" + str(self.dealer.get_values()) + "). You win."
+                self.game_over = True
+                self.show_game_over_screen(self.reason)
+
+            if self.dealer.get_values() >= 17 and self.dealer.get_values() > self.player.get_values():
+                self.reason = "Dealer win (" + str(self.dealer.get_values()) + ")."
                 self.game_over = True
                 self.show_game_over_screen(self.reason)
 
             if self.dealer.get_values() == 21:
                 self.reason = "Dealer got a Blackjack! You lose."
+                self.game_over = True
+                self.show_game_over_screen(self.reason)
+
+            if self.dealer.get_values() >= 17 and self.player.get_values() > self.dealer.get_values():
+                self.reason = "You win."
                 self.game_over = True
                 self.show_game_over_screen(self.reason)
 
@@ -250,6 +282,7 @@ class Game:
                 player.draw_card(self.display, player.name, i, _card_x, _card_y)
                 _x += 25
                 self.player_card_x_offset = _card_x
+                self.dealer_card_x_offset = _card_x
                 self.player_card_y_offset = _card_y
                 pygame.display.update()
 
@@ -273,7 +306,6 @@ class Game:
         pygame.display.flip()
 
     def display_dealer_hand(self):
-        print("display dealer")
         txt_x = self.player_card_x_offset - ((len(self.player.hand) - 1) * 25)
         txt_y = self.player_card_y_offset - 120
         rect_w = (self.deck.deck_img.get_size()[0] + 75)
@@ -290,6 +322,30 @@ class Game:
         txt = self.font_small.render(txt_str, False, (255, 255, 255))
         rect = pygame.Rect(txt_x, txt_y, rect_w, 25)
         self.display.blit(txt, rect)
+
+    def update_display_dealer_hand(self):
+        txt_x = self.player_card_x_offset - ((len(self.player.hand) - 1) * 25)
+        txt_y = self.player_card_y_offset - 120
+        rect_w = (self.deck.deck_img.get_size()[0] + 75)
+        txt_str = "Dealer Total: " + str(self.dealer.get_values())
+        txt = self.font_small.render(txt_str, False, (255, 255, 255))
+        rect = pygame.Rect(txt_x, txt_y, rect_w, 25)
+        # Re-Cover the screen with the background gradient
+        self.gradient_bg(self.display, self.rect, (34, 139, 34), (0, 100, 0), True, True)
+
+        self.display.blit(txt, rect)
+
+        # Update player score
+        self.display_player_hand()
+
+        # Redraw Player, Dealer, Deck and buttons
+        self.display_player_cards()
+        self.display_dealer_cards()
+        self.deck.draw()
+        self.hit_btn()
+        self.stay_btn()
+
+        pygame.display.flip()
 
     def update_display_player_hand(self):
         txt_x = self.player_card_x_offset - ((len(self.player.hand) - 1) * 25)

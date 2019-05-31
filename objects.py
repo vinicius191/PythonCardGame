@@ -83,10 +83,11 @@ class Hand(object):
         aces = 0
         value = 0
         for card in self.hand:
-            if card.is_ace():
-                aces += 1
-            value += card.val
-        while (value > 21) and aces:
+            if not card.is_hidden():
+                if card.is_ace():
+                    aces += 1
+                value += card.val
+        while (value > 21) and aces > 0:
             value -= 10
             aces -= 1
         return value
@@ -138,7 +139,6 @@ class Player(Hand):
             _img = card.card_img
             if card.is_hidden():
                 _img = self.deck_img
-
             display.blit(_img, (x, _y))
         else:
             # print(player, card.card_img, x, y)
