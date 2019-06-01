@@ -1,4 +1,4 @@
-import pygame
+import pygame, time
 from config import Config
 from objects import Deck, Player
 
@@ -22,6 +22,8 @@ class Game:
 
     def __init__(self, display):
         self.clock = pygame.time.Clock()
+        self.last = pygame.time.get_ticks()
+        self.cd = 800
         self.hit_btn_rect = pygame.Rect(Config["deck"]["x"], Config["deck"]["y"]+150, 140, 25)
         self.pygame = pygame.init()
         pygame.font.init()
@@ -58,7 +60,7 @@ class Game:
         self.first_hand(self.players)
 
         # Drawing the hit and stay button
-        self.stay_btn()
+        self.stand_btn()
         self.hit_btn()
 
         # Show Player Hand Total text
@@ -81,44 +83,61 @@ class Game:
                     _deck_img = pygame.Rect((Config["deck"]["x"], Config["deck"]["y"]), _deck_img_size)
                     _hit_btn_w = self.deck.deck_img.get_size()[0]
                     _hit_btn = pygame.Rect(Config["deck"]["x"], Config["deck"]["y"] + 150, _hit_btn_w, 25)
-                    _stay_btn = pygame.Rect(Config["deck"]["x"], Config["deck"]["y"] + 185, _hit_btn_w, 25)
+                    _stand_btn = pygame.Rect(Config["deck"]["x"], Config["deck"]["y"] + 185, _hit_btn_w, 25)
                     if _deck_img.collidepoint(x, y):
                         # It works... need to implement [Hit] and [Stay] buttons
                         pass
                     if _hit_btn.collidepoint(x, y):
+                        print("_hit btn COLLIDE")
                         self.player.hit()
                         self.player_card_x_offset += 25
                         self.player.draw_card(self.display, self.player, self.player.show_hand()[-1],
                                               self.player_card_x_offset, self.player_card_y_offset)
                         # print("Player Hand: ", self.player.str_hand(), "Values: ", self.player.get_values())
-                        self.update_display_player_hand()
-                    if _stay_btn.collidepoint(x, y):
-                        pygame.time.delay(1000)
-                        self.dealer.hand[0].reveal_card()
-                        pygame.time.delay(1000)
-                        self.display_dealer_cards()
-                        self.dealer.draw_card(self.display, self.dealer, self.dealer.show_hand()[-1],
-                                              self.dealer_card_x_offset, self.dealer_card_y_offset)
-                        self.update_display_dealer_hand()
-                        pygame.time.wait(1000)
+                        self.update_player_value_txt()
+                    if _stand_btn.collidepoint(x, y):
+                        print("_stand btn COLLIDE")
+                        self.restart_game(True)
+
+                        # Check if we reveal the first card or not and add a timer to flip the card
+                        self.last = pygame.time.get_ticks() + 200
+                        while self.dealer.hand[0].is_hidden():
+                            now = pygame.time.get_ticks()
+                            if now - self.last >= self.cd:
+                                self.dealer.hand[0].reveal_card()
+                                self.display_dealer_cards()
+                                self.dealer.draw_card(self.display, self.dealer, self.dealer.show_hand()[-1],
+                                                      self.dealer_card_x_offset, self.dealer_card_y_offset)
+                                self.update_dealer_value_txt(True)
+                                self.last = pygame.time.get_ticks()
+                                break
+
                         if self.dealer.get_values() >= 17 and self.dealer.get_values() > self.player.get_values():
                             self.reason = "Dealer win (" + str(self.dealer.get_values()) + ")."
                             self.game_over = True
                             self.show_game_over_screen(self.reason)
+                            break
+                        elif self.dealer.get_values() >= 17 and self.player.get_values() > self.dealer.get_values():
+                            self.reason = "You win (" + str(self.player.get_values()) + ")."
+                            self.game_over = True
+                            self.show_game_over_screen(self.reason)
+                            break
 
-                        while self.dealer.get_values() < 17:
-                            pygame.time.wait(1000)
-                            self.dealer.hand[0].reveal_card()
-                            pygame.time.wait(1000)
-                            self.dealer.hit()
-                            pygame.time.wait(1000)
-                            self.dealer_card_x_offset += 25
+                        self.last = pygame.time.get_ticks() + 500
+                        while True:
+                            if self.dealer.get_values() >= 17:
+                                break
+                            while self.dealer.get_values() < 17:
+                                now = pygame.time.get_ticks()
+                                if now - self.last >= self.cd:
+                                    self.dealer.hit()
+                                    self.dealer_card_x_offset += 25
 
-                            self.display_dealer_cards()
-                            self.dealer.draw_card(self.display, self.dealer, self.dealer.show_hand()[-1],
-                                                  self.dealer_card_x_offset, self.dealer_card_y_offset)
-                            self.update_display_dealer_hand()
-                            pygame.time.wait(1000)
+                                    self.display_dealer_cards()
+                                    self.dealer.draw_card(self.display, self.dealer, self.dealer.show_hand()[-1],
+                                                          self.dealer_card_x_offset, self.dealer_card_y_offset)
+                                    self.update_dealer_value_txt(True)
+                                    self.last = pygame.time.get_ticks() + 500
 
             if self.player.get_values() == 21:
                 self.reason = "Blackjack!"
@@ -147,6 +166,11 @@ class Game:
 
             if self.dealer.get_values() >= 17 and self.player.get_values() > self.dealer.get_values():
                 self.reason = "You win."
+                self.game_over = True
+                self.show_game_over_screen(self.reason)
+
+            if self.dealer.get_values() >= 17 and self.player.get_values() == self.dealer.get_values():
+                self.reason = "It is a Tie."
                 self.game_over = True
                 self.show_game_over_screen(self.reason)
 
@@ -229,7 +253,7 @@ class Game:
                     waiting = False
                     self.restart_game()
 
-    def restart_game(self):
+    def restart_game(self, hide_btns=False):
         self.game_over = False
         # Create a new Deck and new Player/Dealer
         self.deck = Deck(self.display)
@@ -248,9 +272,10 @@ class Game:
         # Dealing first hard of cards
         self.first_hand(self.players)
 
-        # Drawing the hit and stay button
-        self.stay_btn()
-        self.hit_btn()
+        if not hide_btns:
+            # Drawing the hit and stay button
+            self.stand_btn()
+            self.hit_btn()
 
         # Show Player Hand Total text
         self.display_player_hand()
@@ -259,6 +284,8 @@ class Game:
         self.display_dealer_hand()
 
         self.display_dealer_cards()
+
+        pygame.display.flip()
 
     def game_loop(self):
         pass
@@ -296,8 +323,8 @@ class Game:
         pygame.display.flip()
         return btn
 
-    def stay_btn(self):
-        btn_txt = self.font_small.render("STAY", False, (255, 255, 255))
+    def stand_btn(self):
+        btn_txt = self.font_small.render("STAND", False, (255, 255, 255))
         btn_w = self.deck.deck_img.get_size()[0]
         btn = pygame.Rect(Config["deck"]["x"], Config["deck"]["y"]+185, btn_w, 25)
         btn_rect = btn_txt.get_rect(center=btn.center)
@@ -323,7 +350,7 @@ class Game:
         rect = pygame.Rect(txt_x, txt_y, rect_w, 25)
         self.display.blit(txt, rect)
 
-    def update_display_dealer_hand(self):
+    def update_dealer_value_txt(self, hide_btns=False):
         txt_x = self.player_card_x_offset - ((len(self.player.hand) - 1) * 25)
         txt_y = self.player_card_y_offset - 120
         rect_w = (self.deck.deck_img.get_size()[0] + 75)
@@ -342,12 +369,14 @@ class Game:
         self.display_player_cards()
         self.display_dealer_cards()
         self.deck.draw()
-        self.hit_btn()
-        self.stay_btn()
+
+        if not hide_btns:
+            self.hit_btn()
+            self.stand_btn()
 
         pygame.display.flip()
 
-    def update_display_player_hand(self):
+    def update_player_value_txt(self, hide_btns=False):
         txt_x = self.player_card_x_offset - ((len(self.player.hand) - 1) * 25)
         txt_y = self.player_card_y_offset - 35
         rect_w = (self.deck.deck_img.get_size()[0] + 75)
@@ -366,8 +395,10 @@ class Game:
         self.display_player_cards()
         self.display_dealer_cards()
         self.deck.draw()
-        self.hit_btn()
-        self.stay_btn()
+
+        if not hide_btns:
+            self.hit_btn()
+            self.stand_btn()
 
         pygame.display.flip()
 
