@@ -59,7 +59,7 @@ class Card(object):
         return "{} of {}".format(self.rank, self.suit)
 
     def is_ace(self):
-        return self.val == 1
+        return self.val == 11
 
     def hide_card(self):
         self.hidden = True
@@ -79,7 +79,7 @@ class Hand(object):
         self.hand.append(card)
         return self.hand
 
-    def get_values(self):
+    def get_values(self, dealer=False):
         aces = 0
         value = 0
         for card in self.hand:
@@ -87,9 +87,14 @@ class Hand(object):
                 if card.is_ace():
                     aces += 1
                 value += card.val
-        while (value > 21) and aces > 0:
-            value -= 10
-            aces -= 1
+        if dealer:
+            while value > 17 and aces > 0:
+                aces -= 1
+                value -= 10
+        else:
+            while (value > 21) and aces > 0:
+                value -= 10
+                aces -= 1
         return value
 
 

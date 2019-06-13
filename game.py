@@ -97,10 +97,9 @@ class Game:
                         self.update_player_value_txt()
                     if _stand_btn.collidepoint(x, y):
                         print("_stand btn COLLIDE")
-                        self.restart_game(True)
 
                         # Check if we reveal the first card or not and add a timer to flip the card
-                        self.last = pygame.time.get_ticks() + 200
+                        self.last = pygame.time.get_ticks() + 5
                         while self.dealer.hand[0].is_hidden():
                             now = pygame.time.get_ticks()
                             if now - self.last >= self.cd:
@@ -112,70 +111,90 @@ class Game:
                                 self.last = pygame.time.get_ticks()
                                 break
 
-                        if self.dealer.get_values() >= 17 and self.dealer.get_values() > self.player.get_values():
-                            self.reason = "Dealer win (" + str(self.dealer.get_values()) + ")."
-                            self.game_over = True
+                        _dealer_value = self.dealer.get_values(True)
+                        _player_value = self.player.get_values()
+                        print("Dealer get_values()", _dealer_value)
+
+                        if self.check_dealer_hand(_dealer_value, _player_value):
+                            print("Here")
                             self.show_game_over_screen(self.reason)
-                            break
-                        elif self.dealer.get_values() >= 17 and self.player.get_values() > self.dealer.get_values():
-                            self.reason = "You win (" + str(self.player.get_values()) + ")."
-                            self.game_over = True
-                            self.show_game_over_screen(self.reason)
-                            break
 
                         self.last = pygame.time.get_ticks() + 500
-                        while True:
-                            if self.dealer.get_values() >= 17:
-                                break
-                            while self.dealer.get_values() < 17:
-                                now = pygame.time.get_ticks()
-                                if now - self.last >= self.cd:
-                                    self.dealer.hit()
-                                    self.dealer_card_x_offset += 25
 
-                                    self.display_dealer_cards()
-                                    self.dealer.draw_card(self.display, self.dealer, self.dealer.show_hand()[-1],
-                                                          self.dealer_card_x_offset, self.dealer_card_y_offset)
-                                    self.update_dealer_value_txt(True)
-                                    self.last = pygame.time.get_ticks() + 500
+                        while _dealer_value < 17:
+                            now = pygame.time.get_ticks()
+                            if now - self.last >= self.cd:
+                                self.dealer.hit()
+                                self.dealer_card_x_offset += 25
+
+                                self.display_dealer_cards()
+                                self.dealer.draw_card(self.display, self.dealer, self.dealer.show_hand()[-1],
+                                                      self.dealer_card_x_offset, self.dealer_card_y_offset)
+                                self.update_dealer_value_txt(True)
+
+                                _dealer_value = self.dealer.get_values(True)
+
+                                if self.check_dealer_hand(_dealer_value, _player_value):
+                                    print("Here 1")
+                                    self.show_game_over_screen(self.reason)
+
+                                self.last = pygame.time.get_ticks() + 500
+
+                        _dealer_value = self.dealer.get_values(True)
+                        if self.check_dealer_hand(_dealer_value, _player_value):
+                            self.show_game_over_screen(self.reason)
+
+            _dealer_value = self.dealer.get_values(True)
 
             if self.player.get_values() == 21:
                 self.reason = "Blackjack!"
                 self.game_over = True
                 self.show_game_over_screen(self.reason)
-
-            if self.player.get_values() > 21:
+            elif self.player.get_values() > 21:
                 self.reason = "Busted (" + str(self.player.get_values()) + "). Dealer win."
                 self.game_over = True
                 self.show_game_over_screen(self.reason)
-
-            if self.dealer.get_values() > 21:
-                self.reason = "Dealer busted (" + str(self.dealer.get_values()) + "). You win."
+            elif _dealer_value > 21:
+                print("Here 2")
+                self.reason = "Dealer busted (" + str(_dealer_value) + "). You win."
                 self.game_over = True
                 self.show_game_over_screen(self.reason)
-
-            if self.dealer.get_values() >= 17 and self.dealer.get_values() > self.player.get_values():
-                self.reason = "Dealer win (" + str(self.dealer.get_values()) + ")."
+            elif _dealer_value >= 17 and _dealer_value > self.player.get_values():
+                print("Here 3")
+                self.reason = "Dealer win (" + str(_dealer_value) + ")."
                 self.game_over = True
                 self.show_game_over_screen(self.reason)
-
-            if self.dealer.get_values() == 21:
+            elif _dealer_value == 21:
                 self.reason = "Dealer got a Blackjack! You lose."
                 self.game_over = True
                 self.show_game_over_screen(self.reason)
-
-            if self.dealer.get_values() >= 17 and self.player.get_values() > self.dealer.get_values():
+            elif _dealer_value >= 17 and self.player.get_values() > _dealer_value:
                 self.reason = "You win."
                 self.game_over = True
                 self.show_game_over_screen(self.reason)
-
-            if self.dealer.get_values() >= 17 and self.player.get_values() == self.dealer.get_values():
+            elif _dealer_value >= 17 and self.player.get_values() == _dealer_value:
                 self.reason = "It is a Tie."
                 self.game_over = True
                 self.show_game_over_screen(self.reason)
 
             pygame.display.update()
             self.clock.tick(Config["game"]["fps"])
+
+    def check_dealer_hand(self, dealer_value, player_value):
+        if (dealer_value >= 17 and dealer_value <= 21) and dealer_value > player_value:
+            self.reason = "Dealer win (" + str(dealer_value) + ")."
+            self.game_over = True
+            return True
+        elif dealer_value >= 17 and player_value > dealer_value:
+            self.reason = "You win (" + str(player_value) + ")."
+            self.game_over = True
+            return True
+        elif dealer_value >= 17 and player_value == dealer_value:
+            self.reason = "It is a Tie."
+            self.game_over = True
+            return True
+        else:
+            return False
 
     def gradient_bg(self, display, rect, start_color, end_color, vertical=True, forward=True):
         """fill a surface with a gradient pattern
@@ -226,6 +245,7 @@ class Game:
     def show_game_over_screen(self, reason):
         # Clear Player Hand
         self.player = Player("Player", self.deck)
+        self.dealer = Player("Dealer", self.deck)
         # Filling bg with green gradient
         # self.gradient_bg(self.display, self.rect, (34, 139, 34), (0, 100, 0), True, True)
         _w = Config["game"]["width"]
@@ -255,13 +275,17 @@ class Game:
 
     def restart_game(self, hide_btns=False):
         self.game_over = False
+        # TODO: make the game use all the deck cards before resetting it
         # Create a new Deck and new Player/Dealer
-        self.deck = Deck(self.display)
+        # self.deck = Deck(self.display)
         self.player = Player("Player", self.deck)
         self.dealer = Player("Dealer", self.deck)
         self.players = []
         self.players.append(self.player)
         self.players.append(self.dealer)
+
+        # Resetting game_over reason str
+        self.reason = ""
 
         # Filling bg with green gradient
         self.gradient_bg(self.display, self.rect, (34, 139, 34), (0, 100, 0), True, True)
@@ -282,7 +306,6 @@ class Game:
 
         # Show Dealer Hand Total text
         self.display_dealer_hand()
-
         self.display_dealer_cards()
 
         pygame.display.flip()
